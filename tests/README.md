@@ -15,14 +15,14 @@ or:
 node --test tests/core.test.mjs tests/hooks.test.mjs tests/time.test.mjs tests/budget-actions.test.mjs tests/ledger.test.mjs tests/watch.test.mjs tests/stale.test.mjs tests/regression.test.mjs
 ```
 
-Current suite: **30 tests**, all passing.
+Current suite: **31 tests**, all passing.
 
 ## What is covered
 
 | File | Coverage |
 |---|---|
 | `core.test.mjs` | Peak/off-peak pricing, UTC→Asia/Shanghai day boundary, dedupe by `message.id`, cache/output price bands, 70% threshold, `wb selftest` |
-| `hooks.test.mjs` | Hook install/uninstall preserving `env`/`statusLine`, idempotence, statusline install/uninstall preserving existing widgets, ANSI colors at 70/90 |
+| `hooks.test.mjs` | Hook install/uninstall preserving `env`/`statusLine`, idempotence, stable launcher, statusline install/uninstall preserving existing widgets, ANSI colors at 70/90, doctor detects missing launcher |
 | `time.test.mjs` | T02 one-interval start/done/reopen, repeated clicks, invalid finish, reopen time, cross-midnight |
 | `budget-actions.test.mjs` | T03 wrapup on/off、tier2 on/off、idempotence、月度配额、理由；wrapup×tier2 双向保持 +¥0.50、refresh；effective remaining/status/check |
 | `ledger.test.mjs` | T05 incremental append, truncation/replacement, state rebuild from ledger/source, price changes repricing |

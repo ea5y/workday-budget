@@ -42,6 +42,8 @@ export function watchStatus(dataDir, scriptPath) {
     identity: commandMatches,
     startedAt: info?.startedAt || null,
     lastTick: info?.lastTick || null,
+    node: info?.node || null,
+    script: info?.script || null,
     stateAgeSeconds,
     log: p.log,
     pidFile: fs.existsSync(p.pid),
@@ -139,16 +141,24 @@ export function autostartStatus() {
   return { installed: text !== null, path: p.vbs, command: text }
 }
 
-export function installAutostart(nodePath, scriptPath) {
+export function installAutostart(nodePath, scriptPath, launcherPath = '') {
   const p = paths(DATA_DIR_FALLBACK())
   fs.mkdirSync(p.startup, { recursive: true })
+  const commandLines = launcherPath
+    ? [
+        `launcher = "${escapeVbs(launcherPath)}"`,
+        'command = Chr(34) & launcher & Chr(34) & " watch"',
+      ]
+    : [
+        `node = "${escapeVbs(nodePath)}"`,
+        `script = "${escapeVbs(scriptPath)}"`,
+        'command = Chr(34) & node & Chr(34) & " " & Chr(34) & script & Chr(34) & " watch"',
+      ]
   const vbs = [
     'Set fso = CreateObject("Scripting.FileSystemObject")',
     'Set shell = CreateObject("WScript.Shell")',
-    `node = "${escapeVbs(nodePath)}"`,
-    `script = "${escapeVbs(scriptPath)}"`,
+    ...commandLines,
     `stopFile = "${escapeVbs(p.stop)}"`,
-    'command = Chr(34) & node & Chr(34) & " " & Chr(34) & script & Chr(34) & " watch"',
     'Do',
     '  code = shell.Run(command, 0, True)',
     '  If fso.FileExists(stopFile) Then',

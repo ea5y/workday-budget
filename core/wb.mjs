@@ -59,6 +59,7 @@ const SETTINGS_PATH = process.env.WB_CLAUDE_SETTINGS || path.join(os.homedir(), 
 const CCSTATUSLINE_PATH = process.env.WB_CCSTATUSLINE || path.join(os.homedir(), '.config', 'ccstatusline', 'settings.json')
 const SCRIPT_PATH = fileURLToPath(import.meta.url)
 const STATE_MAX_AGE_MS = 5 * 60_000
+const LAUNCHER_PATH = path.join(DATA_DIR, 'bin', process.platform === 'win32' ? 'wb-launcher.cmd' : 'wb-launcher.sh')
 
 const DEFAULT_CONFIG = {
   cap: 10,
@@ -445,7 +446,40 @@ function stateOrRefresh(maxAgeMs = STATE_MAX_AGE_MS) {
 }
 
 function hookCommand(command) {
-  return `"${process.execPath}" "${SCRIPT_PATH}" ${command}`
+  return `"${ensureLauncher()}" ${command}`
+}
+
+function ensureLauncher() {
+  ensureDataDir()
+  fs.mkdirSync(path.dirname(LAUNCHER_PATH), { recursive: true })
+  const content = process.platform === 'win32'
+    ? [
+        '@echo off',
+        'setlocal',
+        `set "WB_SCRIPT=${SCRIPT_PATH}"`,
+        'set "NODE="',
+        `if exist "${process.execPath}" set "NODE=${process.execPath}"`,
+        'if not defined NODE for /f "delims=" %%I in (\'where node 2^>nul\') do if not defined NODE set "NODE=%%I"',
+        'if not defined NODE for /d %%D in ("%LOCALAPPDATA%\\mise\\installs\\node\\*") do if exist "%%D\\node.exe" set "NODE=%%D\\node.exe"',
+        'if not defined NODE if exist "%ProgramFiles%\\nodejs\\node.exe" set "NODE=%ProgramFiles%\\nodejs\\node.exe"',
+        'if not defined NODE (',
+        '  echo STALE - Node.js not found; wb launcher cannot run 1>&2',
+        '  exit /b 0',
+        ')',
+        '"%NODE%" "%WB_SCRIPT%" %*',
+        '',
+      ].join('\r\n')
+    : `#!/bin/sh\nexec node "${SCRIPT_PATH}" "$@"\n`
+  fs.writeFileSync(LAUNCHER_PATH, content, 'utf8')
+  if (process.platform !== 'win32') fs.chmodSync(LAUNCHER_PATH, 0o755)
+  return LAUNCHER_PATH
+}
+
+function isOurCommand(entry) {
+  const command = entry?.command
+  return typeof command === 'string' &&
+    (command.includes('wb.mjs') || command.includes('wb-launcher')) &&
+    (command.includes('check') || command.includes('statusline'))
 }
 
 function readSettings() {
@@ -467,10 +501,6 @@ function writeSettings(settings) {
   const temp = `${SETTINGS_PATH}.tmp-${process.pid}`
   fs.writeFileSync(temp, JSON.stringify(settings, null, 2), 'utf8')
   fs.renameSync(temp, SETTINGS_PATH)
-}
-
-function isOurCommand(entry) {
-  return typeof entry?.command === 'string' && entry.command.includes('wb.mjs') && entry.command.includes('workday-budget')
 }
 
 function removeOurHooks(settings) {
@@ -522,7 +552,67 @@ function hookStatus() {
   return {
     prompt,
     tools,
-    statusline: settings.statusLine?.command?.includes('wb.mjs') === true || ccstatuslineHasWb(),
+    statusline: settings.statusLine?.command?.includes('wb.mjs') === true || settings.statusLine?.command?.includes('wb-launcher') === true || ccstatuslineHasWb(),
+  }
+}
+
+function commandPathOf(command) {
+  if (typeof command !== 'string') return ''
+  const text = command.trim()
+  if (text.startsWith('"')) {
+    const end = text.indexOf('"', 1)
+    return end > 1 ? text.slice(1, end) : ''
+  }
+  return text.split(/\s+/)[0] || ''
+}
+
+function installedCommandPaths() {
+  const paths = new Set()
+  const settings = readSettings()
+  for (const name of ['UserPromptSubmit', 'PreToolUse']) {
+    for (const group of settings.hooks?.[name] || []) {
+      for (const entry of group.hooks || []) {
+        if (isOurCommand(entry)) {
+          const commandPath = commandPathOf(entry.command)
+          if (commandPath) paths.add(commandPath)
+        }
+      }
+    }
+  }
+  if (typeof settings.statusLine?.command === 'string' &&
+    (settings.statusLine.command.includes('wb.mjs') || settings.statusLine.command.includes('wb-launcher'))) {
+    const commandPath = commandPathOf(settings.statusLine.command)
+    if (commandPath) paths.add(commandPath)
+  }
+  const cc = readCcstatusline()
+  for (const line of cc?.lines || []) {
+    for (const widget of line || []) {
+      if (isWbStatuslineWidget(widget)) {
+        const commandPath = commandPathOf(widget.commandPath)
+        if (commandPath) paths.add(commandPath)
+      }
+    }
+  }
+  return [...paths]
+}
+
+function launcherHealth() {
+  if (!fs.existsSync(LAUNCHER_PATH)) return { ok: false, detail: 'missing' }
+  let text = ''
+  try {
+    text = fs.readFileSync(LAUNCHER_PATH, 'utf8')
+  } catch {
+    return { ok: false, detail: 'unreadable' }
+  }
+  const scriptOk = process.platform !== 'win32' || text.includes(SCRIPT_PATH)
+  const nodeOk = fs.existsSync(process.execPath)
+  const probe = process.platform === 'win32'
+    ? spawnSync('where', ['node'], { encoding: 'utf8', timeout: 2_000 })
+    : spawnSync('sh', ['-c', 'command -v node'], { encoding: 'utf8', timeout: 2_000 })
+  const pathNodeOk = probe.status === 0 && String(probe.stdout || '').trim().length > 0
+  return {
+    ok: scriptOk && (nodeOk || pathNodeOk),
+    detail: `script=${scriptOk ? 'ok' : 'missing'} node=${nodeOk ? 'ok' : 'missing'} pathNode=${pathNodeOk ? 'ok' : 'missing'}`,
   }
 }
 
@@ -538,7 +628,7 @@ function isWbStatuslineWidget(widget) {
   return (
     widget?.type === 'custom-command' &&
     typeof widget.commandPath === 'string' &&
-    (widget.commandPath.includes('wb.mjs') || widget.commandPath.includes('wb.cmd')) &&
+    (widget.commandPath.includes('wb.mjs') || widget.commandPath.includes('wb-launcher') || widget.commandPath.includes('wb.cmd')) &&
     widget.commandPath.includes('statusline')
   )
 }
@@ -583,7 +673,7 @@ function installStatusline() {
   }
   config.lines = stripWbStatuslineWidgets(config.lines)
   if (config.lines.length === 0) config.lines.push([])
-  const commandPath = `"${process.execPath}" "${SCRIPT_PATH}" statusline --color`
+  const commandPath = `"${ensureLauncher()}" statusline --color`
   config.lines[0].push(
     { id: requireId(), type: 'separator' },
     {
@@ -999,7 +1089,8 @@ function main() {
   if (command === 'autostart') {
     const action = rest[0] || 'status'
     if (action === 'install') {
-      const result = installAutostart(process.execPath, SCRIPT_PATH)
+      const launcher = ensureLauncher()
+      const result = installAutostart(process.execPath, SCRIPT_PATH, launcher)
       console.log(`开机自启已安装：${result.path}`)
       console.log('当前用户登录时启动；卸载：wb autostart uninstall')
       return
@@ -1110,13 +1201,42 @@ function main() {
     console.log(`claude    ${config.claudeDir} ${fs.existsSync(config.claudeDir) ? 'ok' : 'missing'}`)
     console.log(`node      ${process.execPath}`)
     console.log(`hooks     prompt=${status.prompt} tools=${status.tools} statusline=${status.statusline}`)
+    let doctorOk = true
+    const launcher = launcherHealth()
+    console.log(`launcher  ${launcher.ok ? 'ok' : 'MISSING'} ${LAUNCHER_PATH} (${launcher.detail})`)
+    if (!launcher.ok) doctorOk = false
+    for (const commandPath of installedCommandPaths()) {
+      const ok = fs.existsSync(commandPath)
+      console.log(`command   ${ok ? 'ok' : 'MISSING'} ${commandPath}`)
+      if (!ok) doctorOk = false
+    }
     const watch = watchStatus(DATA_DIR, SCRIPT_PATH)
     if (watch.running) {
       console.log(`watch     running pid=${watch.pid} lastTick=${watch.lastTick ? new Date(watch.lastTick).toLocaleTimeString('zh-CN') : '?'} stateAge=${watch.stateAgeSeconds ?? '?'}s`)
+      if (watch.script && !fs.existsSync(watch.script)) {
+        console.log(`watch     MISSING ${watch.script}`)
+        doctorOk = false
+      }
+      if (watch.node && !fs.existsSync(watch.node) && !launcher.ok) {
+        console.log(`watch     MISSING node ${watch.node}`)
+        doctorOk = false
+      }
     } else {
       console.log(`watch     not running${watch.alive ? ' (pid alive but identity mismatch)' : ''}`)
     }
-    console.log(`startup   ${autostartStatus().installed ? 'installed' : 'not installed'}`)
+    const startup = autostartStatus()
+    console.log(`startup   ${startup.installed ? 'installed' : 'not installed'}`)
+    if (startup.installed && typeof startup.command === 'string') {
+      const launcherLine = startup.command.split(/\r?\n/).find((line) => line.trim().startsWith('launcher = '))
+      if (launcherLine) {
+        const startupPath = launcherLine.slice(launcherLine.indexOf('"') + 1, launcherLine.lastIndexOf('"'))
+        if (!fs.existsSync(startupPath)) {
+          console.log(`startup   MISSING ${startupPath}`)
+          doctorOk = false
+        }
+      }
+    }
+    if (!doctorOk) process.exitCode = 1
     return
   }
 

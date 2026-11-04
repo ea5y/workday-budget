@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import { cleanup, readJson, runWb, tempWorkspace, writeState } from './helpers.mjs'
 
 const SETTINGS = {
@@ -34,8 +36,12 @@ test('hooks install/uninstall preserves existing settings and is idempotent', ()
     assert.equal(settings.theme, 'dark')
     assert.equal(settings.hooks.UserPromptSubmit.length, 1)
     assert.equal(settings.hooks.PreToolUse.length, 1)
-    assert.match(settings.hooks.UserPromptSubmit[0].hooks[0].command, /wb\.mjs/)
+    const hookCommand = settings.hooks.UserPromptSubmit[0].hooks[0].command
+    assert.match(hookCommand, /wb-launcher/)
+    assert.doesNotMatch(hookCommand, /node\.exe/i)
     assert.match(settings.hooks.PreToolUse[0].hooks[0].command, /check --hook/)
+    const launcher = path.join(workspace.dir, 'bin', process.platform === 'win32' ? 'wb-launcher.cmd' : 'wb-launcher.sh')
+    assert.ok(fs.existsSync(launcher), 'stable launcher should exist')
 
     const status = JSON.parse(runWb(workspace, ['hooks', 'status']).stdout)
     assert.equal(status.prompt, true)
@@ -65,6 +71,8 @@ test('statusline install/uninstall adds and removes only the work widget', () =>
     assert.equal(widgets.filter((widget) => widget.type === 'custom-command').length, 1)
     const work = widgets.find((widget) => widget.type === 'custom-command')
     assert.match(work.commandPath, /statusline --color/)
+    assert.match(work.commandPath, /wb-launcher/)
+    assert.doesNotMatch(work.commandPath, /node\.exe/i)
     assert.equal(work.preserveColors, true)
     assert.ok(widgets.some((widget) => widget.type === 'model'))
     assert.ok(widgets.some((widget) => widget.type === 'git-branch'))
@@ -98,6 +106,22 @@ test('statusline colors follow 70/90 thresholds', () => {
     writeState(workspace, { spent: 10.02, state: 'LOCKED', allowed: false })
     result = runWb(workspace, ['statusline', '--color'])
     assert.match(result.stdout, /\u001b\[1;31m/)
+  } finally {
+    cleanup(workspace)
+  }
+})
+
+test('doctor reports a missing launcher', () => {
+  const workspace = tempWorkspace({ settings: SETTINGS })
+  try {
+    let result = runWb(workspace, ['hooks', 'install'])
+    assert.equal(result.status, 0, result.stderr || result.stdout)
+    const launcher = path.join(workspace.dir, 'bin', process.platform === 'win32' ? 'wb-launcher.cmd' : 'wb-launcher.sh')
+    fs.rmSync(launcher, { force: true })
+
+    result = runWb(workspace, ['doctor'])
+    assert.equal(result.status, 1, result.stdout)
+    assert.match(result.stdout, /launcher\s+MISSING/)
   } finally {
     cleanup(workspace)
   }

@@ -14,7 +14,7 @@ wb doctor
 DSH 中安装插件（二选一）：
 
 ```text
-workday-budget@1.0.3
+workday-budget@1.0.4
 link:E:/AI/workday-budget
 ```
 
@@ -62,7 +62,7 @@ wb statusline status
 ## 开发
 
 ```powershell
-npm test          # 30 项
+npm test          # 31 项
 npm run regression
 npm run perf
 ```
@@ -81,7 +81,7 @@ design/   设计稿
 
 ## 版本
 
-- v1.0.3（2026-11-04，5 分钟过期与 STALE 失败路径）
+- v1.0.4（2026-11-04，稳定 launcher 与路径自检）
 - 需求基线：`docs/需求文档.md`
 - 设计基线：`design/v0.5/`
 - License：Apache-2.0
