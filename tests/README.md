@@ -5,7 +5,7 @@ All tests use `node:test` and Node's built-in assert/fetch; no npm dependencies.
 ## Run
 
 ```powershell
-cd workday-budget\tests
+cd tests
 .\run-tests.cmd
 ```
 
@@ -15,7 +15,7 @@ or:
 node --test tests/core.test.mjs tests/hooks.test.mjs tests/time.test.mjs tests/budget-actions.test.mjs tests/ledger.test.mjs tests/watch.test.mjs tests/regression.test.mjs
 ```
 
-Current suite: **25 tests**, all passing.
+Current suite: **28 tests**, all passing.
 
 ## What is covered
 
@@ -24,7 +24,7 @@ Current suite: **25 tests**, all passing.
 | `core.test.mjs` | Peak/off-peak pricing, UTC→Asia/Shanghai day boundary, dedupe by `message.id`, cache/output price bands, 70% threshold, `wb selftest` |
 | `hooks.test.mjs` | Hook install/uninstall preserving `env`/`statusLine`, idempotence, statusline install/uninstall preserving existing widgets, ANSI colors at 70/90 |
 | `time.test.mjs` | T02 one-interval start/done/reopen, repeated clicks, invalid finish, reopen time, cross-midnight |
-| `budget-actions.test.mjs` | T03 wrapup on/off, tier2 on/off, idempotence, monthly quota, reason required |
+| `budget-actions.test.mjs` | T03 wrapup on/off、tier2 on/off、idempotence、月度配额、理由；wrapup×tier2 双向保持 +¥0.50、refresh；effective remaining/status/check |
 | `ledger.test.mjs` | T05 incremental append, truncation/replacement, state rebuild from ledger/source, price changes repricing |
 | `watch.test.mjs` | T08 single instance, duplicate start rejection, clean stop, log rotation |
 | `regression.test.mjs` | Five-day platform bill regression within ±8%; skips if Claude Code logs are unavailable |

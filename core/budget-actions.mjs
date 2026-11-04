@@ -12,6 +12,30 @@ export const WRAPUP_MINUTES = 30
 export const TIER2_CAP = 20
 export const TIER2_MONTHLY_LIMIT = 4
 
+/**
+ * Single source of truth for the effective cap. A wrap-up extension is added
+ * on top of either the normal cap or the active tier-2 cap, and must survive a
+ * refresh and both transition orders.
+ */
+export function effectiveLimit({ cap, wrapup, tier2 } = {}) {
+  const base = tier2?.enabled === true
+    ? Number(tier2.cap) || TIER2_CAP
+    : Number(cap) || 0
+  const extension = wrapup?.active === true
+    ? Number(wrapup.cap) || WRAPUP_CAP
+    : 0
+  return base + extension
+}
+
+export function withEffectiveWork(work, limit) {
+  const spent = Number(work?.spent) || 0
+  return {
+    ...work,
+    remaining: round(Math.max(0, Number(limit) - spent), 4),
+    effectivePct: round(Number(limit) > 0 ? (spent / Number(limit)) * 100 : 0, 2),
+  }
+}
+
 export function mutateBudgetState({ statePath, logPath, action, reason = '', now = Date.now() }) {
   return withStateLock(statePath, () => {
     const state = readState(statePath)
@@ -55,9 +79,18 @@ export function applyWrapup(state, active, now = Date.now()) {
     ? { active: true, until: Number(now) + WRAPUP_MINUTES * 60_000, cap }
     : { active: false, until: 0, cap }
   const tier2 = state.tier2 || {}
-  const limit = (tier2.enabled === true ? Number(tier2.cap) || TIER2_CAP : Number(state.cap) || 0) + (active ? cap : 0)
-  const allowed = Number(state.work?.spent) < limit
-  const next = { ...state, wrapup, limit, allowed, statusline: statuslineText(state, limit) }
+  const limit = effectiveLimit({ cap: state.cap, wrapup, tier2 })
+  const spent = Number(state.work?.spent) || 0
+  const allowed = spent < limit
+  const next = {
+    ...state,
+    updatedAt: Number(now),
+    wrapup,
+    limit,
+    allowed,
+    work: withEffectiveWork(state.work, limit),
+    statusline: statuslineText(state, limit),
+  }
   return { ok: true, idempotent: false, state: next, wrapup, limit, allowed }
 }
 
@@ -81,22 +114,34 @@ export function applyTier2(state, enabled, reason, now = Date.now()) {
       return { ok: false, error: 'monthly_limit', message: `本月二级上限已使用 ${TIER2_MONTHLY_LIMIT} 次` }
     }
     const tier2 = { enabled: true, cap: TIER2_CAP, reason: text, month, count: count + 1 }
-    const limit = TIER2_CAP
+    const limit = effectiveLimit({ cap, wrapup, tier2 })
     const spent = Number(state.work?.spent) || 0
-    const workState = spent >= TIER2_CAP ? 'TIER2_LOCKED' : spent >= TIER2_CAP * 0.9 ? 'TIER2_WARN' : 'TIER2'
-    const next = { ...state, tier2, limit, allowed: spent < limit, work: { ...state.work, state: workState }, statusline: statuslineText(state, limit) }
+    const workState = spent >= limit ? 'TIER2_LOCKED' : spent >= TIER2_CAP * 0.9 ? 'TIER2_WARN' : 'TIER2'
+    const work = withEffectiveWork(state.work, limit)
+    const next = {
+      ...state,
+      updatedAt: Number(now),
+      tier2,
+      limit,
+      allowed: spent < limit,
+      work: { ...work, state: workState },
+      statusline: statuslineText(state, limit),
+    }
     return { ok: true, idempotent: false, state: next, tier2, limit, allowed: next.allowed }
   }
 
-  const limit = cap + (wrapup.active === true ? Number(wrapup.cap) || WRAPUP_CAP : 0)
+  const tier2 = { ...current, enabled: false }
+  const limit = effectiveLimit({ cap, wrapup, tier2 })
   const spent = Number(state.work?.spent) || 0
   const workState = spent >= cap ? 'LOCKED' : state.work?.pct >= 90 ? 'WINDDOWN' : state.work?.pct >= 70 ? 'WARN' : 'NORMAL'
+  const work = withEffectiveWork(state.work, limit)
   const next = {
     ...state,
-    tier2: { ...current, enabled: false },
+    updatedAt: Number(now),
+    tier2,
     limit,
     allowed: spent < limit,
-    work: { ...state.work, state: workState },
+    work: { ...work, state: workState },
     statusline: statuslineText(state, limit),
   }
   return { ok: true, idempotent: false, state: next, tier2: next.tier2, limit, allowed: next.allowed }
@@ -175,4 +220,9 @@ function acquireLock(lockPath, timeoutMs) {
 
 function sleep(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+function round(value, digits) {
+  const factor = 10 ** digits
+  return Math.round((Number(value) + Number.EPSILON) * factor) / factor
 }

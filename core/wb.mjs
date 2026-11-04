@@ -33,7 +33,7 @@ import {
   timeView,
   withStateLock,
 } from './time-core.mjs'
-import { mutateBudgetState } from './budget-actions.mjs'
+import { effectiveLimit, mutateBudgetState } from './budget-actions.mjs'
 import { scanUsage } from './usage-core.mjs'
 import { rebuildFromLedger, rebuildFromSource, scanIncremental } from './usage-ledger.mjs'
 import {
@@ -358,8 +358,9 @@ function buildState(config, scanResult, previous) {
     count: previousTier2?.month === monthKey() ? Number(previousTier2.count) || 0 : 0,
   }
 
-  const limit = tier2.enabled ? tier2.cap : config.cap + (wrapup.active ? wrapup.cap : 0)
-  const remaining = Math.max(0, config.cap - spent)
+  const limit = effectiveLimit({ cap: config.cap, wrapup, tier2 })
+  const remaining = Math.max(0, limit - spent)
+  const effectivePct = limit > 0 ? (spent / limit) * 100 : 0
   const allowed = spent < limit
   let state
   if (tier2.enabled) {
@@ -389,6 +390,7 @@ function buildState(config, scanResult, previous) {
       raw: round(raw, 4),
       pct: round(basePct, 2),
       state,
+      effectivePct: round(effectivePct, 2),
       remaining: round(remaining, 4),
       requests: scanResult.requests,
       requestsTotal: scanResult.requestsTotal,
@@ -631,7 +633,7 @@ function fmtDuration(minutes) {
 function printState(state) {
   const time = timeView(state, Date.now())
   console.log(`日期      ${state.date}`)
-  console.log(`工作花费  ¥${state.work.spent.toFixed(2)} / ${state.cap.toFixed(2)}  (${state.work.pct.toFixed(1)}%)`)
+  console.log(`工作花费  ¥${state.work.spent.toFixed(2)} / ${Number(state.limit).toFixed(2)}  (${Number(state.work.effectivePct ?? state.work.pct).toFixed(1)}%)`)
   console.log(`状态      ${state.work.state}${state.allowed ? '' : ' · 下一次请求将被拒绝'}`)
   console.log(`剩余      ¥${state.work.remaining.toFixed(2)}`)
   console.log(`请求      ${state.work.requests} 次 · ${state.scan.files} 文件 · 去重 ${state.scan.duplicates}`)
@@ -772,7 +774,7 @@ function main() {
         : state.wrapup?.active
           ? `收尾额度已用尽 ${state.work.spent.toFixed(2)}/${state.limit.toFixed(2)}`
           : `工作额度已用完 ${state.work.spent.toFixed(2)}/${state.cap.toFixed(2)}`
-      process.stderr.write(`work ${state.work.spent.toFixed(2)}/${state.cap.toFixed(0)} · ${reason}；wb wrapup 开启收尾，wb tier2 --on 申请二级\n`)
+      process.stderr.write(`work ${state.work.spent.toFixed(2)}/${state.limit.toFixed(2)} · ${reason}；wb wrapup 开启收尾，wb tier2 --on 申请二级\n`)
       process.exitCode = 2
       return
     }
