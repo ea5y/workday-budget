@@ -1,0 +1,15 @@
+{
+  "name": "workday-budget",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Workday Budget local core, DSH dashboard, hooks, and regression tests",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test tests/core.test.mjs tests/hooks.test.mjs tests/time.test.mjs tests/budget-actions.test.mjs tests/ledger.test.mjs tests/watch.test.mjs tests/regression.test.mjs",
+    "regression": "node --test tests/regression.test.mjs",
+    "perf": "node tests/perf.mjs"
+  }
+}

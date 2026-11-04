@@ -1,0 +1,29 @@
+# dependencies / build
+node_modules/
+dist/
+.pnpm-store/
+
+# runtime data — never commit
+usage-log.jsonl
+usage-cache.json
+state*.json
+config*.json
+time-log.jsonl
+budget-log.jsonl
+config-changes.jsonl
+*-backup-*.json
+*.bak-*
+*.log
+*.pid
+*.lock
+*.tmp
+
+# sensitive screenshots / bills
+验收/
+tools/usage-export/
+
+# local OS / editor
+.DS_Store
+Thumbs.db
+.env
+.env.*

@@ -1,0 +1,17 @@
+- insert:
+    - id: workday-budget
+      name: '@local/workday-budget'
+      config:
+        cap: 10
+        calibration: 1.14
+        refreshSeconds: 30
+        timeValueMinutesPerUnit: 48
+        pricing:
+          offPeak:
+            cacheHit: 0.02
+            cacheMiss: 1
+            output: 4
+          peak:
+            cacheHit: 0.04
+            cacheMiss: 2
+            output: 8

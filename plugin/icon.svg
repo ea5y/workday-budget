@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Workday Budget">
+  <path d="M12 44a22 22 0 1 1 40 0" fill="none" stroke="#2F6BFF" stroke-width="5" stroke-linecap="round"/>
+  <path d="M32 44 44 27" fill="none" stroke="#D92D20" stroke-width="4.5" stroke-linecap="round"/>
+  <circle cx="32" cy="44" r="4.5" fill="#2F6BFF"/>
+  <path d="M23 49h18" stroke="#067647" stroke-width="4" stroke-linecap="round"/>
+  <path d="M26 55h12" stroke="#067647" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+</svg>
