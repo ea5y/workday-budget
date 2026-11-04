@@ -1,11 +1,67 @@
 {
   "name": "workday-budget",
-  "version": "1.0.0",
-  "private": true,
+  "version": "1.0.1",
+  "description": "Claude Code budget hard-stop, statusline, and full-screen DSH dashboard",
   "type": "module",
-  "description": "Workday Budget local core, DSH dashboard, hooks, and regression tests",
+  "license": "Apache-2.0",
+  "author": "ea5y",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ea5y/workday-budget.git"
+  },
+  "homepage": "https://github.com/ea5y/workday-budget#readme",
+  "bugs": {
+    "url": "https://github.com/ea5y/workday-budget/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "deepseek-harness",
+    "dsh",
+    "budget",
+    "statusline",
+    "hooks"
+  ],
   "engines": {
     "node": ">=20"
+  },
+  "bin": {
+    "wb": "core/wb.mjs"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./core/*": "./core/*",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json",
+    "core/wb.mjs",
+    "core/time-core.mjs",
+    "core/usage-core.mjs",
+    "core/usage-ledger.mjs",
+    "core/budget-actions.mjs",
+    "core/watch-core.mjs",
+    "core/wb.cmd",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
   },
   "scripts": {
     "test": "node --test tests/core.test.mjs tests/hooks.test.mjs tests/time.test.mjs tests/budget-actions.test.mjs tests/ledger.test.mjs tests/watch.test.mjs tests/regression.test.mjs",

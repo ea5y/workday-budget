@@ -1,6 +1,6 @@
 - insert:
     - id: workday-budget
-      name: '@local/workday-budget'
+      name: 'workday-budget'
       config:
         cap: 10
         calibration: 1.14

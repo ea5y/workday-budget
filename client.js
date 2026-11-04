@@ -6,7 +6,7 @@
  * calculation. This first version is read-only and clearly says so in the UI.
  */
 window.__ModuleLoader__.load({
-  id: '@local/workday-budget',
+  id: 'workday-budget',
   factory(require) {
     const React = require('react')
     const h = React.createElement

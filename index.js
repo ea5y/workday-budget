@@ -9,7 +9,7 @@
  * one calibrated. DSH tooling is display-only until the standalone `wb` core
  * and Claude Code hooks are wired in.
  *
- * @module @local/workday-budget
+ * @module workday-budget
  */
 import fs from 'node:fs'
 import os from 'node:os'
@@ -19,9 +19,9 @@ import {
   mutateTimeState,
   parseAt,
   timeView,
-} from '../core/time-core.mjs'
-import { mutateBudgetState } from '../core/budget-actions.mjs'
-import { scanUsage } from '../core/usage-core.mjs'
+} from './core/time-core.mjs'
+import { mutateBudgetState } from './core/budget-actions.mjs'
+import { scanUsage } from './core/usage-core.mjs'
 
 const SUMMARY_PATH = '/workday-budget/summary'
 const SETTINGS_PATH = '/workday-budget/settings'
