@@ -6,7 +6,7 @@
 
 ```text
 name      workday-budget
-version   1.0.2
+version   1.0.3
 license   Apache-2.0
 bin       wb -> core/wb.mjs
 ```
@@ -71,7 +71,7 @@ wb doctor
 从 npm 安装插件：
 
 ```text
-workday-budget@1.0.2
+workday-budget@1.0.3
 ```
 
 本地开发仍使用：
@@ -84,15 +84,15 @@ link:E:/AI/workday-budget
 
 1. 修改 `package.json` 的 `version`；
 2. 更新 `README` 版本说明；
-3. `npm test` 28 项通过；
+3. `npm test` 30 项通过；
 4. `npm pack --dry-run` 检查文件；
 5. `npm publish`；
 6. Git 提交并打 tag：
 
 ```powershell
-git tag v1.0.2
+git tag v1.0.3
 git push
-git push origin v1.0.2
+git push origin v1.0.3
 ```
 
 > 不要把 `%APPDATA%\workbuddy`、`settings-backup-*`、账单截图或 `.env` 打进包；`files` 白名单和 `.gitignore` 已排除。

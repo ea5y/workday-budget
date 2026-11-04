@@ -12,10 +12,10 @@ cd tests
 or:
 
 ```powershell
-node --test tests/core.test.mjs tests/hooks.test.mjs tests/time.test.mjs tests/budget-actions.test.mjs tests/ledger.test.mjs tests/watch.test.mjs tests/regression.test.mjs
+node --test tests/core.test.mjs tests/hooks.test.mjs tests/time.test.mjs tests/budget-actions.test.mjs tests/ledger.test.mjs tests/watch.test.mjs tests/stale.test.mjs tests/regression.test.mjs
 ```
 
-Current suite: **28 tests**, all passing.
+Current suite: **30 tests**, all passing.
 
 ## What is covered
 
@@ -27,6 +27,7 @@ Current suite: **28 tests**, all passing.
 | `budget-actions.test.mjs` | T03 wrapup on/off、tier2 on/off、idempotence、月度配额、理由；wrapup×tier2 双向保持 +¥0.50、refresh；effective remaining/status/check |
 | `ledger.test.mjs` | T05 incremental append, truncation/replacement, state rebuild from ledger/source, price changes repricing |
 | `watch.test.mjs` | T08 single instance, duplicate start rejection, clean stop, log rotation |
+| `stale.test.mjs` | 5-minute stale threshold; hook fail-open single-line STALE; normal CLI single-line error |
 | `regression.test.mjs` | Five-day platform bill regression within ±8%; skips if Claude Code logs are unavailable |
 | `perf.mjs` | `wb check`/`statusline` latency (20 runs), cold/warm summary route if the DSH page is running |
 

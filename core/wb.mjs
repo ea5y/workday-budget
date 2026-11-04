@@ -58,6 +58,7 @@ const SCAN_CACHE_PATH = path.join(DATA_DIR, 'usage-cache.json')
 const SETTINGS_PATH = process.env.WB_CLAUDE_SETTINGS || path.join(os.homedir(), '.claude', 'settings.json')
 const CCSTATUSLINE_PATH = process.env.WB_CCSTATUSLINE || path.join(os.homedir(), '.config', 'ccstatusline', 'settings.json')
 const SCRIPT_PATH = fileURLToPath(import.meta.url)
+const STATE_MAX_AGE_MS = 5 * 60_000
 
 const DEFAULT_CONFIG = {
   cap: 10,
@@ -437,7 +438,7 @@ function refresh() {
   return persistState(config, scanResult)
 }
 
-function stateOrRefresh(maxAgeMs) {
+function stateOrRefresh(maxAgeMs = STATE_MAX_AGE_MS) {
   const current = readState()
   if (current !== null && Date.now() - Number(current.updatedAt) < maxAgeMs) return current
   return refresh()
@@ -630,6 +631,11 @@ function fmtDuration(minutes) {
   return `${hours}h ${String(rest).padStart(2, '0')}m`
 }
 
+function errorLine(error) {
+  const text = error instanceof Error ? error.message : String(error)
+  return text.replace(/\s+/g, ' ').trim() || 'unknown error'
+}
+
 function printState(state) {
   const time = timeView(state, Date.now())
   console.log(`日期      ${state.date}`)
@@ -700,7 +706,7 @@ function main() {
   }
 
   if (command === 'start' || command === 'done' || command === 'reopen') {
-    stateOrRefresh(20_000)
+    stateOrRefresh()
     let at = null
     if (command === 'reopen') {
       const index = rest.findIndex((item) => item === '--at' || item.startsWith('--at='))
@@ -760,14 +766,25 @@ function main() {
   }
 
   if (command === 'status') {
-    const state = stateOrRefresh(20_000)
+    const state = stateOrRefresh()
     if (rest.includes('--json')) console.log(JSON.stringify(state, null, 2))
     else printState(state)
     return
   }
 
   if (command === 'check') {
-    const state = stateOrRefresh(20_000)
+    let state
+    try {
+      state = stateOrRefresh()
+    } catch (error) {
+      if (rest.includes('--hook')) {
+        process.stderr.write(`STALE · state 刷新失败：${errorLine(error)}；本次 hook 放行\n`)
+        return
+      }
+      process.stderr.write(`wb: ${errorLine(error)}\n`)
+      process.exitCode = 1
+      return
+    }
     if (!state.allowed) {
       const reason = state.tier2?.enabled
         ? `二级上限已用尽 ${state.work.spent.toFixed(2)}/${state.limit.toFixed(2)}`
@@ -803,7 +820,7 @@ function main() {
       console.log(JSON.stringify({ merged: ccstatuslineHasWb(), path: CCSTATUSLINE_PATH }, null, 2))
       return
     }
-    const state = stateOrRefresh(20_000)
+    const state = stateOrRefresh()
     if (rest.includes('--color') || rest.includes('color')) {
       process.stdout.write(statuslineColor(state) + '\n')
     } else {
@@ -813,7 +830,7 @@ function main() {
   }
 
   if (command === 'wrapup') {
-    stateOrRefresh(20_000)
+    stateOrRefresh()
     const active = !rest.includes('--off')
     let result
     try {
@@ -838,7 +855,7 @@ function main() {
   }
 
   if (command === 'tier2') {
-    stateOrRefresh(20_000)
+    stateOrRefresh()
     const off = rest.includes('--off')
     let reason = ''
     if (!off) {
@@ -1107,4 +1124,9 @@ function main() {
   process.exitCode = 1
 }
 
-main()
+try {
+  main()
+} catch (error) {
+  process.stderr.write(`wb: ${errorLine(error)}\n`)
+  process.exitCode = 1
+}

@@ -10,5 +10,5 @@ if errorlevel 1 (
 set "NODE=node"
 :run
 pushd "%~dp0"
-"%NODE%" --test core.test.mjs hooks.test.mjs time.test.mjs budget-actions.test.mjs ledger.test.mjs watch.test.mjs regression.test.mjs
+"%NODE%" --test core.test.mjs hooks.test.mjs time.test.mjs budget-actions.test.mjs ledger.test.mjs watch.test.mjs stale.test.mjs regression.test.mjs
 popd
