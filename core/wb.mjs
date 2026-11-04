@@ -523,12 +523,15 @@ function installHooks() {
   const settings = readSettings()
   removeOurHooks(settings)
   const hooks = settings.hooks && typeof settings.hooks === 'object' ? settings.hooks : {}
-  const command = hookCommand('check --hook')
-  const entry = { hooks: [{ type: 'command', command, timeout: 30 }] }
+  const promptCommand = hookCommand('check --hook --event prompt')
+  const toolCommand = hookCommand('check --hook --event tool')
   hooks.UserPromptSubmit = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
-  hooks.UserPromptSubmit.push(entry)
+  hooks.UserPromptSubmit.push({ hooks: [{ type: 'command', command: promptCommand, timeout: 30 }] })
   hooks.PreToolUse = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : []
-  hooks.PreToolUse.push({ matcher: '', hooks: [{ type: 'command', command, timeout: 30 }] })
+  hooks.PreToolUse.push({
+    matcher: 'Bash|Edit|Write|NotebookEdit|MultiEdit|Task|WebFetch|WebSearch|mcp__.*',
+    hooks: [{ type: 'command', command: toolCommand, timeout: 30 }],
+  })
   settings.hooks = hooks
   writeSettings(settings)
   return settings
@@ -761,6 +764,57 @@ function checkJson(state) {
   }
 }
 
+function optionValue(args, name) {
+  const index = args.findIndex((item) => item === name || item.startsWith(`${name}=`))
+  if (index < 0) return null
+  return args[index].includes('=') ? args[index].slice(args[index].indexOf('=') + 1) : args[index + 1] || null
+}
+
+function readHookInput() {
+  if (process.stdin.isTTY) return null
+  try {
+    const text = fs.readFileSync(0, 'utf8').trim()
+    return text.length > 0 ? JSON.parse(text) : null
+  } catch {
+    return null
+  }
+}
+
+const READ_ONLY_TOOLS = new Set([
+  'Read',
+  'Glob',
+  'Grep',
+  'LS',
+  'NotebookRead',
+  'TodoWrite',
+  'AskUserQuestion',
+  'ExitPlanMode',
+])
+
+const SAFE_BASH_PATTERNS = [
+  /^git\s+(status|diff|log|show|rev-parse|branch|remote|ls-files)\b/,
+  /^(ls|pwd|cat|head|tail|grep|rg)\b/,
+  /^npm\s+(test|run\s+test)\b/,
+  /^pnpm\s+(test|run\s+test)\b/,
+  /^node\s+--test\b/,
+  /^(pytest|python\s+-m\s+pytest|go\s+test|cargo\s+test|dotnet\s+test|mvn\s+test|gradle\s+test)\b/,
+]
+
+function isSafeBashCommand(command) {
+  const text = typeof command === 'string' ? command.trim() : ''
+  if (text.length === 0) return false
+  if (/[;&|><]/.test(text)) return false
+  return SAFE_BASH_PATTERNS.some((pattern) => pattern.test(text))
+}
+
+function isToolAllowed(input) {
+  const name = typeof input?.tool_name === 'string' ? input.tool_name : ''
+  if (name.length === 0) return true
+  if (READ_ONLY_TOOLS.has(name)) return true
+  if (name === 'Bash') return isSafeBashCommand(input?.tool_input?.command)
+  return false
+}
+
 function main() {
   const argv = process.argv.slice(2)
   const command = argv[0] || 'status'
@@ -863,6 +917,7 @@ function main() {
   }
 
   if (command === 'check') {
+    const event = optionValue(rest, '--event') || (rest.includes('--hook') ? 'prompt' : null)
     let state
     try {
       state = stateOrRefresh()
@@ -876,12 +931,16 @@ function main() {
       return
     }
     if (!state.allowed) {
+      if (event === 'tool' && isToolAllowed(readHookInput())) return
       const reason = state.tier2?.enabled
         ? `二级上限已用尽 ${state.work.spent.toFixed(2)}/${state.limit.toFixed(2)}`
         : state.wrapup?.active
           ? `收尾额度已用尽 ${state.work.spent.toFixed(2)}/${state.limit.toFixed(2)}`
           : `工作额度已用完 ${state.work.spent.toFixed(2)}/${state.cap.toFixed(2)}`
-      process.stderr.write(`work ${state.work.spent.toFixed(2)}/${state.limit.toFixed(2)} · ${reason}；wb wrapup 开启收尾，wb tier2 --on 申请二级\n`)
+      const hint = event === 'tool'
+        ? '只读命令放行；wb wrapup 开启收尾'
+        : 'wb wrapup 开启收尾，wb tier2 --on 申请二级'
+      process.stderr.write(`work ${state.work.spent.toFixed(2)}/${state.limit.toFixed(2)} · ${reason}；${hint}\n`)
       process.exitCode = 2
       return
     }

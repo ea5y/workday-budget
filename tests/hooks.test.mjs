@@ -38,8 +38,11 @@ test('hooks install/uninstall preserves existing settings and is idempotent', ()
     assert.equal(settings.hooks.PreToolUse.length, 1)
     const hookCommand = settings.hooks.UserPromptSubmit[0].hooks[0].command
     assert.match(hookCommand, /wb-launcher/)
+    assert.match(hookCommand, /--event prompt/)
     assert.doesNotMatch(hookCommand, /node\.exe/i)
-    assert.match(settings.hooks.PreToolUse[0].hooks[0].command, /check --hook/)
+    assert.match(settings.hooks.PreToolUse[0].hooks[0].command, /--event tool/)
+    assert.match(settings.hooks.PreToolUse[0].matcher, /Bash/)
+    assert.match(settings.hooks.PreToolUse[0].matcher, /Read|Edit/)
     const launcher = path.join(workspace.dir, 'bin', process.platform === 'win32' ? 'wb-launcher.cmd' : 'wb-launcher.sh')
     assert.ok(fs.existsSync(launcher), 'stable launcher should exist')
 
@@ -122,6 +125,31 @@ test('doctor reports a missing launcher', () => {
     result = runWb(workspace, ['doctor'])
     assert.equal(result.status, 1, result.stdout)
     assert.match(result.stdout, /launcher\s+MISSING/)
+  } finally {
+    cleanup(workspace)
+  }
+})
+
+test('PreToolUse allows read-only tools and safe bash while LOCKED', () => {
+  const workspace = tempWorkspace({ settings: SETTINGS })
+  try {
+    writeState(workspace, { spent: 10.2, state: 'LOCKED', allowed: false })
+    const runTool = (toolName, toolInput = {}) => runWb(
+      workspace,
+      ['check', '--hook', '--event', 'tool'],
+      {},
+      JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: toolName, tool_input: toolInput }),
+    )
+
+    assert.equal(runTool('Read', { file_path: 'README.md' }).status, 0)
+    assert.equal(runTool('Bash', { command: 'git status' }).status, 0)
+    assert.equal(runTool('Bash', { command: 'npm test' }).status, 0)
+    assert.equal(runTool('Edit', { file_path: 'README.md' }).status, 2)
+    assert.equal(runTool('Bash', { command: 'rm -rf build' }).status, 2)
+    assert.equal(runTool('Task', { prompt: 'do work' }).status, 2)
+
+    const prompt = runWb(workspace, ['check', '--hook', '--event', 'prompt'])
+    assert.equal(prompt.status, 2)
   } finally {
     cleanup(workspace)
   }

@@ -75,10 +75,11 @@ export function tempWorkspace({ lines = [], config = {}, settings = {}, ccstatus
   return { dir, projects, settingsPath, ccPath, env }
 }
 
-export function runWb(workspace, args, extraEnv = {}) {
+export function runWb(workspace, args, extraEnv = {}, input = null) {
   return spawnSync(process.execPath, [WB, ...args], {
     env: { ...workspace.env, ...extraEnv },
     encoding: 'utf8',
+    input,
     timeout: 60_000,
   })
 }

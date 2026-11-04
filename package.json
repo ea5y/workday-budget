@@ -1,6 +1,6 @@
 {
   "name": "workday-budget",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Claude Code budget hard-stop, statusline, and full-screen DSH dashboard",
   "type": "module",
   "license": "Apache-2.0",
