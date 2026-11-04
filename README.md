@@ -14,7 +14,7 @@ wb doctor
 DSH 中安装插件（二选一）：
 
 ```text
-workday-budget@1.1.1
+workday-budget@1.1.2
 link:E:/AI/workday-budget
 ```
 
@@ -81,7 +81,7 @@ design/   设计稿
 
 ## 版本
 
-- v1.1.1（2026-11-04，删除旧 scan 死代码）
+- v1.1.2（2026-11-04，G 移除；v1.1 暂缓）
 - 需求基线：`docs/需求文档.md`
 - 设计基线：`design/v0.5/`
 - License：Apache-2.0
