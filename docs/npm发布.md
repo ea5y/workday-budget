@@ -6,7 +6,7 @@
 
 ```text
 name      workday-budget
-version   1.1.0
+version   1.1.1
 license   Apache-2.0
 bin       wb -> core/wb.mjs
 ```
@@ -71,7 +71,7 @@ wb doctor
 从 npm 安装插件：
 
 ```text
-workday-budget@1.1.0
+workday-budget@1.1.1
 ```
 
 本地开发仍使用：
@@ -90,9 +90,9 @@ link:E:/AI/workday-budget
 6. Git 提交并打 tag：
 
 ```powershell
-git tag v1.1.0
+git tag v1.1.1
 git push
-git push origin v1.1.0
+git push origin v1.1.1
 ```
 
 > 不要把 `%APPDATA%\workbuddy`、`settings-backup-*`、账单截图或 `.env` 打进包；`files` 白名单和 `.gitignore` 已排除。
